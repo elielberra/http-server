@@ -11,22 +11,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const pageSize = 4096
+
 func handleConnection(netFD int, sa unix.Sockaddr) {
 	defer unix.Close(netFD)
 	if _, ok := sa.(*unix.SockaddrInet4); ok {
-		buffer := make([]byte, 4000) // TODO: Find out why did I set 4000?
+		buffer := make([]byte, pageSize)
 		numBytes, err := unix.Read(netFD, buffer)
 		if err != nil {
 			fmt.Printf("Error reading the contents of the request: %v", err)
+			return
 		}
 		rawRequest := string(buffer[:numBytes])
 		var req parser.Request
-		if _, err := parser.SetRequestData(rawRequest, &req); err != nil {
+		if err := parser.SetRequestData(rawRequest, &req); err != nil {
 			fmt.Println(err)
 		}
-		resBody := fmt.Sprintf("Hello from my custom http server!\n"+
-			"Request method: %s\n"+
-			"Request path: %s\n",
+		resBody := fmt.Sprintf("Hello from my custom http server!\r\n"+
+			"Request method: %s\r\n"+
+			"Request path: %s\r\n",
 			req.Method, req.Path)
 		if req.Method == parser.POST {
 			resBody += fmt.Sprintf("Request body: %s\n", req.Body)
@@ -97,6 +100,7 @@ func main() {
 		nfd, sa, err := socket.AcceptConn(fd)
 		if err != nil {
 			log.Printf("Failed to accept the connection: %s", err)
+			continue
 		}
 		go handleConnection(nfd, sa)
 	}
