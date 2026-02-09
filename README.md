@@ -27,3 +27,6 @@ alias air='$(go env GOPATH)/bin/air'
 # Start the server
 air
 ```
+
+### Debugging
+A `launch.json` configuration file is included for debugging with VS Code. This allows for setting breakpoints and inspecting the execution flow of the server, specifically for monitoring socket syscalls and request parsing.
