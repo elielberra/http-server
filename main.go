@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/elielberra/http-server/parser"
-	"github.com/elielberra/http-server/socket"
 	"golang.org/x/sys/unix"
 )
 
@@ -72,8 +71,18 @@ func validatePort(port int) error {
 	return nil
 }
 
+func ipToBytes(ip string) [4]byte {
+	var ipBytes [4]byte
+	octets := strings.Split(ip, ".")
+	for i, octet := range octets {
+		octetInt, _ := strconv.Atoi(octet)
+		ipBytes[i] = byte(octetInt)
+	}
+	return ipBytes
+}
+
 func main() {
-	fd, err := socket.CreateTCPSocket()
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_STREAM, unix.IPPROTO_TCP)
 	if err != nil {
 		log.Fatalf("Failed to create the socket: %v", err)
 	}
@@ -89,15 +98,17 @@ func main() {
 	if err := validatePort(port); err != nil {
 		log.Fatal(err)
 	}
-	if err := socket.BindSocket(ip, port, fd); err != nil { // TODO: Remove socket package
+	addr := ipToBytes(ip)
+	sockAddr := &unix.SockaddrInet4{Port: port, Addr: addr}
+	if err := unix.Bind(fd, sockAddr); err != nil {
 		log.Fatalf("Failed to bind the socket: %v", err)
 	}
-	if err := socket.ListenSocket(fd); err != nil {
+	if err := unix.Listen(fd, int(unix.SOMAXCONN)); err != nil {
 		log.Fatalf("Failed to listen on socket %v", err)
 	}
 	log.Printf("Created a listening server at %s:%d", ip, port)
 	for {
-		nfd, sa, err := socket.AcceptConn(fd)
+		nfd, sa, err := unix.Accept(fd)
 		if err != nil {
 			log.Printf("Failed to accept the connection: %s", err)
 			continue
