@@ -62,27 +62,40 @@ func getContentLength(rawReq string) (int, error) {
 	return -1, fmt.Errorf("malformed request: %s (must contain a content length for the body)", rawReq)
 }
 
-func SetRequestData(rawReq string, req *Request) (*Request, error) {
+func setBody(rawReq string, req *Request) error {
+	reqHeadersBody := strings.SplitN(rawReq, reqBodySep, 2)
+	if len(reqHeadersBody) == 1 { // If the body is empty
+		return nil
+	}
+	contentLenHeader, err := getContentLength(rawReq)
+	if err != nil {
+		return err
+	}
+	body := reqHeadersBody[1]
+	actualLen := len(body)
+	if actualLen < contentLenHeader {
+		req.Body = body[:actualLen]
+	} else {
+		req.Body = body[:contentLenHeader]
+	}
+	return nil
+}
+
+func SetRequestData(rawReq string, req *Request) error {
 	reqFirstLineTokens := strings.SplitN(rawReq, reqFirstLnSep, 3)
 	if len(reqFirstLineTokens) < minReqItems {
-		return req, fmt.Errorf("malformed request: %s (must contain a verb and a path)", rawReq)
+		return fmt.Errorf("malformed request: %s (must contain a verb and a path)", rawReq)
 	}
 	if err := setMethod(reqFirstLineTokens[0], req); err != nil {
-		return req, err
+		return err
 	}
 	if err := setPath(strings.TrimRight(reqFirstLineTokens[1], " \r\n"), req); err != nil {
-		return req, err
+		return err
 	}
 	if req.Method == POST {
-		reqHeadersBody := strings.SplitN(rawReq, reqBodySep, 2)
-		if len(reqHeadersBody) == 1 { // If the body is empty
-			return req, nil
+		if err := setBody(rawReq, req); err !=  nil {
+			return err
 		}
-		contentLen, err := getContentLength(rawReq)
-		if err != nil {
-			return nil, err
-		}
-		req.Body = reqHeadersBody[1][:contentLen]
 	}
-	return req, nil
+	return nil
 }
