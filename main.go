@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -11,6 +12,17 @@ import (
 )
 
 const pageSize = 4096
+
+func sendResponse(netFD int, res string) {
+	if _, err := unix.Write(netFD, []byte(res)); err != nil {
+		fmt.Printf("Error while sending the response to the client:\n%v", err)
+	}
+}
+
+type ErrorMsg struct {
+	Error   string
+	Message string
+}
 
 func handleConnection(netFD int, sa unix.Sockaddr) {
 	defer unix.Close(netFD)
@@ -24,7 +36,21 @@ func handleConnection(netFD int, sa unix.Sockaddr) {
 		rawRequest := string(buffer[:numBytes])
 		var req parser.Request
 		if err := parser.SetRequestData(rawRequest, &req); err != nil {
-			fmt.Println(err)
+			errMsg := ErrorMsg{Error:"Bad request", Message: err.Error()}
+			resBodyByte, err := json.Marshal(errMsg)
+			resBodyStr := string(resBodyByte)
+			if err != nil {
+				fmt.Printf("error marshaling object to JSON: %v\n", err)
+				return
+			}
+			res := fmt.Sprintf("HTTP/1.1 400 Bad Request\r\n"+
+				"Content-Type: application/json\r\n"+
+				"Content-Length: %d\r\n"+
+				"\r\n"+
+				"%s",
+				len(resBodyStr), resBodyStr)
+			sendResponse(netFD, res)
+			return
 		}
 		resBody := fmt.Sprintf("Hello from my custom http server!\r\n"+
 			"Request method: %s\r\n"+
@@ -39,9 +65,7 @@ func handleConnection(netFD int, sa unix.Sockaddr) {
 			"\r\n"+
 			"%s",
 			len(resBody), resBody)
-		if _, err := unix.Write(netFD, []byte(res)); err != nil {
-			fmt.Printf("Error sending the response to the client:\n%v", err)
-		}
+		sendResponse(netFD, res)
 	}
 }
 
