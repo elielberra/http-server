@@ -37,8 +37,7 @@ func handleConnection(netFD int, sa unix.Sockaddr) {
 		var req parser.Request
 		if err := parser.SetRequestData(rawRequest, &req); err != nil {
 			errMsg := ErrorMsg{Error:"Bad request", Message: err.Error()}
-			resBodyByte, err := json.Marshal(errMsg)
-			resBodyStr := string(resBodyByte)
+			resBody, err := json.Marshal(errMsg)
 			if err != nil {
 				fmt.Printf("error marshaling object to JSON: %v\n", err)
 				return
@@ -48,7 +47,7 @@ func handleConnection(netFD int, sa unix.Sockaddr) {
 				"Content-Length: %d\r\n"+
 				"\r\n"+
 				"%s",
-				len(resBodyStr), resBodyStr)
+				len(resBody), resBody)
 			sendResponse(netFD, res)
 			return
 		}
