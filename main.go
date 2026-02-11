@@ -11,17 +11,17 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type ErrorMsg struct {
+	Error   string
+	Message string
+}
+
 const pageSize = 4096
 
 func sendResponse(netFD int, res string) {
 	if _, err := unix.Write(netFD, []byte(res)); err != nil {
 		fmt.Printf("Error while sending the response to the client:\n%v", err)
 	}
-}
-
-type ErrorMsg struct {
-	Error   string
-	Message string
 }
 
 func handleConnection(netFD int, sa unix.Sockaddr) {
